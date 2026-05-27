@@ -433,7 +433,17 @@ class CIIProtocol extends AbstractProtocol
 		$line->desc = $langs->trans("Description") . " 1";
 		$line->qty = 5;
 		$line->subprice = 100.05;		// unit price (no discount yet)
-		$line->tva_tx = get_default_tva($thirdpartySeller, $thirdpartyBuyer);
+		// get_default_tva() may return "rate (code)" (e.g. "20 (taux20)") when the VAT
+		// dictionary entry carries a code. Keep a numeric rate in tva_tx and store the code
+		// apart, otherwise the code leaks into the CII RateApplicablePercent value and the
+		// PDP rejects the invoice (BR-FR-16: invalid VAT rate string).
+		$defaultvat = get_default_tva($thirdpartySeller, $thirdpartyBuyer);
+		$reg = array();
+		if (preg_match('/\((.*)\)/', (string) $defaultvat, $reg)) {
+			$line->vat_src_code = $reg[1];
+			$defaultvat = preg_replace('/\s*\(.*\)/', '', (string) $defaultvat);
+		}
+		$line->tva_tx = (float) $defaultvat;
 		$line->localtax1_tx = 0;
 		$line->localtax2_tx = 0;
 		$line->remise_percent = 10;
